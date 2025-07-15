@@ -27,3 +27,10 @@ torchtext==0.16.0
 pesq
 pystoi
 torchdiffeq
+numba=0.48
+numpy=1.18
+pandas=1.0.3
+jupyter=1.0.0
+librosa=0.7.2
+ruamel.yaml=0.15.100
+pretty_midi
