@@ -19,7 +19,7 @@ python -m pip install 'torch==2.1.0' torchvision torchaudio
 ```shell
 python -m pip install setuptools wheel
 python -m pip install -U audiocraft  # stable release
-python -m pip install -e .  # or if you cloned the repo locally (mandatory if you want to train).
+#python -m pip install -e .  # or if you cloned the repo locally (mandatory if you want to train).
 ```
 We also recommend having `ffmpeg` installed, either through your system or Anaconda:
 ```bash
