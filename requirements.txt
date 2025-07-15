@@ -26,11 +26,3 @@ protobuf
 torchvision==0.16.0
 torchtext==0.16.0
 pesq
-pystoi
-torchdiffeq
-numba==0.48
-pandas
-jupyter==1.0.0
-librosa==0.7.2
-ruamel.yaml==0.15.100
-pretty_midi
