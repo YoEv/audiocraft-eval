@@ -445,57 +445,44 @@ def main():
         original_stdout = sys.stdout
         sys.stdout = open(args.output_file + ".log", 'w')
 
-    try:
-        if args.process_missing and args.output_file:
-            # Process missing files on CPU
-            process_missing_files(args.audio_dir, args.output_file, args.loss_type)
-        elif args.dataset_name:
-            # Process Hugging Face dataset
-            device = setup_device(args.force_cpu)
-            print(f"Using device: {device}")
+    if args.process_missing and args.output_file:
+        # Process missing files on CPU
+        process_missing_files(args.audio_dir, args.output_file, args.loss_type)
+    elif args.dataset_name:
+        # Process Hugging Face dataset
+        device = setup_device(args.force_cpu)
+        print(f"Using device: {device}")
 
-            # 先加载模型
-            model, processor = load_model(device, args.offload_folder, args.use_8bit, args.use_4bit)
-            
-            results, error_files = process_huggingface_dataset(
-                args.dataset_name, model, processor, device, args.output_file, args.loss_type,
-                batch_size=args.batch_size, max_audio_length=args.max_audio_length, chunk_size=args.chunk_size
-            )
-            
-            if not args.output_file:
-                print("\n处理结果:")
-                for filename, loss in results:
-                    print(f"{filename}: {loss:.4f}")
-        else:
-            # Normal directory processing
-            device = setup_device(args.force_cpu)
-            print(f"Using device: {device}")
+        # 先加载模型
+        model, processor = load_model(device, args.offload_folder, args.use_8bit, args.use_4bit)
+        
+        results, error_files = process_huggingface_dataset(
+            args.dataset_name, model, processor, device, args.output_file, args.loss_type,
+            batch_size=args.batch_size, max_audio_length=args.max_audio_length, chunk_size=args.chunk_size
+        )
+        
+        if not args.output_file:
+            print("\n处理结果:")
+            for filename, loss in results:
+                print(f"{filename}: {loss:.4f}")
+    else:
+        # Normal directory processing
+        device = setup_device(args.force_cpu)
+        print(f"Using device: {device}")
 
-            model, processor = load_model(device, args.offload_folder, args.use_8bit, args.use_4bit)
+        model, processor = load_model(device, args.offload_folder, args.use_8bit, args.use_4bit)
 
-            assert os.path.isdir(args.audio_dir), f"目录不存在: {args.audio_dir}"
+        assert os.path.isdir(args.audio_dir), f"目录不存在: {args.audio_dir}"
 
-            results, error_files = process_audio_directory(
-                args.audio_dir, model, processor, device, args.output_file, args.loss_type,
-                batch_size=args.batch_size, max_audio_length=args.max_audio_length, chunk_size=args.chunk_size
-            )
+        results, error_files = process_audio_directory(
+            args.audio_dir, model, processor, device, args.output_file, args.loss_type,
+            batch_size=args.batch_size, max_audio_length=args.max_audio_length, chunk_size=args.chunk_size
+        )
 
-            if not args.output_file:
-                print("\n处理结果:")
-                for filename, loss in results:
-                    print(f"{filename}: {loss:.4f}")
-
-    except Exception as e:
-        print(f"错误发生: {str(e)}")
-    finally:
-        if 'device' in locals() and device == 'cuda':
-            torch.cuda.empty_cache()
-        print("显存已清理")
-
-        # Restore stdout if redirected
-        if original_stdout:
-            sys.stdout.close()
-            sys.stdout = original_stdout
+        if not args.output_file:
+            print("\n处理结果:")
+            for filename, loss in results:
+                print(f"{filename}: {loss:.4f}")
 
 if __name__ == "__main__":
     main()
