@@ -14,8 +14,8 @@ torchaudio>=2.0.0,<2.1.2
 huggingface_hub
 datasets
 tqdm
-transformers>=4.31.0  # need Encodec there.
-xformers<0.0.23
+transformers==4.34.1  # need Encodec there.
+xformers==0.0.22.post7
 demucs
 librosa
 soundfile
@@ -26,3 +26,5 @@ protobuf
 torchvision==0.16.0
 torchtext==0.16.0
 pesq
+torchcodec
+torchdiffeq
