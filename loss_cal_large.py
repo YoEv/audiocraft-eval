@@ -351,6 +351,10 @@ def process_huggingface_dataset(dataset_name, model, processor, device, output_f
             print(f"Audio data type: {type(audio_data)}")
             print(f"Audio data: {audio_data}")
 
+    # 初始化结果列表
+    results = []
+    error_files = []
+    
     # 打开输出文件
     out_file = None
     if output_file:
@@ -360,63 +364,66 @@ def process_huggingface_dataset(dataset_name, model, processor, device, output_f
     # 创建临时目录来存储音频文件
     temp_dir = tempfile.mkdtemp()
     
-    # 分批处理数据集
-    for i in range(0, len(data_split), batch_size):
-        batch_data = data_split[i:i+batch_size]
-        print(f"处理批次 {i//batch_size + 1}/{(len(data_split) + batch_size - 1)//batch_size}")
+    # 处理数据集中的每个样本
+    for idx, sample in enumerate(data_split):
+        print(f"处理样本 {idx+1}/{len(data_split)}")
+        
+        if 'audio' in sample:
+            print(f"Sample {idx}:")
+            print(f"  Audio type: {type(sample['audio'])}")
+            print(f"  Audio keys: {list(sample['audio'].keys()) if isinstance(sample['audio'], dict) else 'Not a dict'}")
+            print(f"  Label: {sample['label']}")
+            print()
 
-        for idx, sample in enumerate(batch_data):
-            print(sample)
-            if 'audio' in sample:
-                print(f"Sample {idx}:")
-                print(f"  Audio type: {type(sample['audio'])}")
-                print(f"  Audio keys: {list(sample['audio'].keys()) if isinstance(sample['audio'], dict) else 'Not a dict'}")
-                print(f"  Label: {sample['label']}")
-                print()
+            audio_data = sample['audio']
+            if 'path' in audio_data:
+                original_filename = os.path.basename(audio_data['path'])
+                filename_without_ext = os.path.splitext(original_filename)[0]
+                filename = f"{filename_without_ext}.wav"
+            else:
+                filename = f"sample_{idx}.wav"
 
-                audio_data = sample['audio']
-                if 'path' in audio_data:
-                    original_filename = os.path.basename(audio_data['path'])
-                    filename_without_ext = os.path.splitext(original_filename)[0]
-                    filename = f"{filename_without_ext}.wav"
-                else:
-                    filename = f"sample_{i+idx}.wav"
+            # 保存音频到临时文件
+            temp_audio_path = os.path.join(temp_dir, filename)
 
-                    # 保存音频到临时文件
-                temp_audio_path = os.path.join(temp_dir, filename)
+            # 如果音频数据是字典格式（包含array和sampling_rate）
+            if isinstance(audio_data, dict) and 'array' in audio_data:
+                sf.write(temp_audio_path, audio_data['array'], audio_data['sampling_rate'])
+            else:
+                # 如果是其他格式，尝试直接保存
+                print(f"警告: 音频数据格式未知，跳过样本 {filename}")
+                continue
 
-                    # 如果音频数据是字典格式（包含array和sampling_rate）
-                if isinstance(audio_data, dict) and 'array' in audio_data:
-                    sf.write(temp_audio_path, audio_data['array'], audio_data['sampling_rate'])
-                else:
-                        # 如果是其他格式，尝试直接保存
-                    print(f"警告: 音频数据格式未知，跳过样本 {filename}")
-                    continue
+            # 处理音频文件
+            loss = process_single_audio(temp_audio_path, model, processor, device, loss_type, max_audio_length, chunk_size)
 
-                    # 处理音频文件
-                loss = process_single_audio(temp_audio_path, model, processor, device, loss_type, max_audio_length, chunk_size)
+            if loss is not None:
+                results.append((filename, loss))
+                if out_file:
+                    out_file.write(f"{filename}: {loss:.8f}\n")
+                    out_file.flush()
+            else:
+                error_files.append(filename)
 
-                if loss is not None:
-                    results.append((filename, loss))
-                    if out_file:
-                        out_file.write(f"{filename}: {loss:.8f}\n")
-                        out_file.flush()
-                    else:
-                        error_files.append(filename)
+            # 删除临时文件
+            if os.path.exists(temp_audio_path):
+                os.remove(temp_audio_path)
 
-                    # 删除临时文件
-                if os.path.exists(temp_audio_path):
-                    os.remove(temp_audio_path)
-
-            # 每批处理完后清理缓存
-        if device == "cuda":
-            torch.cuda.empty_cache()
-            gc.collect()
-            print("批次处理完成，已清理显存")
-
+            # 每个样本处理完后清理缓存
+            if device == "cuda":
+                torch.cuda.empty_cache()
+                gc.collect()
+    
+    # 关闭输出文件
+    if out_file:
+        out_file.close()
+    
+    # 清理临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
     
     # 处理错误文件
-    if error_files and device == "cuda":
+    if error_files:
         error_file_path = output_file + ".errors.txt" if output_file else "processing_errors.txt"
         with open(error_file_path, 'w') as f:
             f.write(f"处理失败的文件数量: {len(error_files)}\n\n")
